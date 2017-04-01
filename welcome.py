@@ -15,14 +15,35 @@
 import os
 from flask import Flask, jsonify, redirect, url_for, request
 from flask_cors import CORS, cross_origin
+import unirest
+from random import randint
+
+def random_with_N_digits(n):
+    range_start = 10**(n-1)
+    range_end = (10**n)-1
+    return randint(range_start, range_end)
 
 app = Flask(__name__)
 CORS(app)
 @app.route('/newuser', methods = ['POST'])
 def newuser():
-    accno = request.args.get('accountno')
-    print accno
-    return 'wow da'
+    accno = request.get_json(force=True)
+    print accno['accountno']
+    response = unirest.get("https://retailbanking.mybluemix.net/banking/icicibank/balanceenquiry", headers={ "Accept": "application/json" }, params={ "client_id": "andrew2moses@gmail.com", "token": "fbc5f3df1504", "accountno": accno['accountno'] })
+    try:
+        if response.body[1]['balance']:
+            #valid acc number
+            pubkey = random_with_N_digits(10)
+            privatekey = random_with_N_digits(10)
+            currentbalance = response.body[1]['balance']
+            outman = {'pubkey': pubkey, 'privatekey': privatekey, 'currentbalance': currentbalance}
+            return jsonify(outman)
+    except Exception as e:
+        #invalid acc number
+        print e
+        return "invalid"
+    #going to simulate as though block chain was used.
+    # going to return a publickey and private.
 @app.errorhandler(404)
 def page_not_found(e):
     return 404
