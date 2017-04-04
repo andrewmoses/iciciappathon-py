@@ -17,6 +17,7 @@ from flask import Flask, jsonify, redirect, url_for, request
 from flask_cors import CORS, cross_origin
 import unirest
 from random import randint
+import MySQLdb
 
 def random_with_N_digits(n):
     range_start = 10**(n-1)
@@ -61,6 +62,20 @@ def nearby():
         return jsonify(guys = guys)
     else:
         return "empty"
+@app.route('/extradata', methods = ['POST'])
+def extradata():
+    try:
+        fulldata = request.get_json(force=True)
+        print fulldata
+        db = MySQLdb.connect(host='localhost', user='root', passwd='kakavarumahillaya', db='wallet')
+        cur = db.cursor()
+        cur.execute( """INSERT INTO users(avatar,nickname,type,vpa,lat,lng) values(%s,%s,%s,%s,%s,%s)""", (fulldata['avatar'], fulldata['nickname'], fulldata['type'], fulldata['vpa'], fulldata['lat'], fulldata['lng']))
+        db.commit()
+        db.close()
+        return 'success'
+    except Exception as e:
+        print e
+        return 'failed'
 @app.errorhandler(404)
 def page_not_found(e):
     return 404
