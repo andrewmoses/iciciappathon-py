@@ -36,8 +36,23 @@ def newuser():
             #valid acc number
             pubkey = random_with_N_digits(10)
             privatekey = random_with_N_digits(10)
+            db = MySQLdb.connect(host='localhost', user='root', passwd='', db='wallet')
+            cur = db.cursor()
+            #check if pubkey already exists or not
+            while True:
+                cur.execute("""SELECT * FROM users WHERE vpa=%s""", [pubkey])
+                data = cur.fetchall()
+                if data:
+                    #regenerate the key and check again untill it is unique
+                    pubkey = random_with_N_digits(10)
+                else:
+                    break
             currentbalance = response.body[1]['balance']
             outman = {'pubkey': pubkey, 'privatekey': privatekey, 'currentbalance': currentbalance}
+            #insert into db
+            cur.execute("""INSERT INTO users(vpa,accountnumber) values(%s,%s)""", (pubkey,accno['accountno']))
+            db.commit()
+            db.close()
             return jsonify(outman)
     except Exception as e:
         #invalid acc number
@@ -67,15 +82,56 @@ def extradata():
     try:
         fulldata = request.get_json(force=True)
         print fulldata
-        db = MySQLdb.connect(host='localhost', user='root', passwd='kakavarumahillaya', db='wallet')
+        db = MySQLdb.connect(host='localhost', user='root', passwd='', db='wallet')
         cur = db.cursor()
-        cur.execute( """INSERT INTO users(avatar,nickname,type,vpa,lat,lng) values(%s,%s,%s,%s,%s,%s)""", (fulldata['avatar'], fulldata['nickname'], fulldata['type'], fulldata['vpa'], fulldata['lat'], fulldata['lng']))
+        cur.execute( """UPDATE users set avatar=%s, nickname=%s, type=%s, lat=%s, lng=%s WHERE vpa=%s""", (fulldata['avatar'], fulldata['nickname'], fulldata['type'], fulldata['lat'], fulldata['lng'], fulldata['vpa']))
         db.commit()
         db.close()
         return 'success'
     except Exception as e:
         print e
         return 'failed'
+@app.route('/payeeconfirm', methods = ['POST'])
+def payeeconfirm():
+    try:
+        vpa = request.get_json(force=True)
+        print 'payeeconfirm: '+str(vpa['payvpa'])
+        #hit db and check whether it is valid
+        db = MySQLdb.connect(host='localhost', user='root', passwd='', db='wallet')
+        cur = db.cursor()
+        cur.execute("""SELECT * FROM users WHERE vpa=%s""", [vpa['payvpa']])
+        data = cur.fetchall()
+        if data:
+            #retrieve the avatar and nickname
+            for each in data:
+                pavatar = each[1]
+                pnickname = each[2]
+            outman = {'payeeavatar': pavatar, 'payeenickname': pnickname}
+            db.close()
+            return jsonify(outman)
+        else:
+            #no such vpa
+            db.close()
+            return "invalid"
+    except Exception as e:
+        print e
+        return False
+@app.route('/transfer', methods = ['POST'])
+def transfer():
+    payee = request.get_json(force=True)
+    print payee
+    #hit the mysql for the account details
+    db = MySQLdb.connect(host='localhost', user = 'root', passwd='', db='wallet')
+    cur = db.cursor()
+    cur.execute("""SELECT * FROM users WHERE vpa=%s""", [payee['vpa']])
+    data = cur.fetchall()
+    for each in data:
+        accno = each[5]
+    #now hit the icici api for transfer
+    response = unirest.get("https://retailbanking.mybluemix.net/banking/icicibank/fundTransfer", headers={"Accept": "application/json" }, params={ "client_id": "andrew2moses@gmail.com", "token": "fbc5f3df1504", "srcAccount":'###'})
+    #need to pass src vpa along with payee vpa
+    print 'acc number: '+str(accno)
+    response = unirest.get()
 @app.errorhandler(404)
 def page_not_found(e):
     return 404
