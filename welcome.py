@@ -34,6 +34,17 @@ def newuser():
     try:
         if response.body[1]['balance']:
             #valid acc number
+            #hit the icici data mapping to get the cust_id
+            response2 = unirest.get("https://retailbanking.mybluemix.net/banking/icicibank/participantmapping", headers={ "Accept": "application/json" }, params={ "client_id":"andrew2moses@gmail.com"})
+            pdmapping = response2.body
+            for each in pdmapping:
+                #find the cust_id of the accno.
+                try:
+                    if each['account_no']==accno['accountno']:
+                        wantedcustid = each['cust_id']
+                except:
+                    print 'wow da'
+            print 'custid:'+str(wantedcustid)
             pubkey = random_with_N_digits(10)
             privatekey = random_with_N_digits(10)
             db = MySQLdb.connect(host='localhost', user='root', passwd='', db='wallet')
@@ -50,7 +61,7 @@ def newuser():
             currentbalance = response.body[1]['balance']
             outman = {'pubkey': pubkey, 'privatekey': privatekey, 'currentbalance': currentbalance}
             #insert into db
-            cur.execute("""INSERT INTO users(vpa,accountnumber) values(%s,%s)""", (pubkey,accno['accountno']))
+            cur.execute("""INSERT INTO users(vpa,accountnumber,cust_id) values(%s,%s,%s)""", (pubkey,accno['accountno'],wantedcustid))
             db.commit()
             db.close()
             return jsonify(outman)
@@ -116,6 +127,29 @@ def payeeconfirm():
     except Exception as e:
         print e
         return False
+@app.route('/curbal', methods=['POST'])
+def curbal():
+    vpa = request.get_json(force=True)
+    print 'vpa: '+str(vpa)
+    #hit the mysql and get the acc number
+    db=MySQLdb.connect(host='localhost', user='root', passwd='', db='wallet')
+    cur = db.cursor()
+    cur.execute("""SELECT * FROM users WHERE vpa=%s""", [vpa['vpa']])
+    data = cur.fetchall()
+    for each in data:
+        curaccno = each[5]
+    db.close()
+    #nwo hit the icic for balance
+    response = unirest.get("https://retailbanking.mybluemix.net/banking/icicibank/balanceenquiry", headers={ "Accept": "application/json" }, params={ "client_id": "andrew2moses@gmail.com", "token": "fbc5f3df1504", "accountno": curaccno })
+    try:
+        if response.body[1]['balance']:
+            currentbalance = response.body[1]['balance']
+            outman = {'curbal':currentbalance}
+            return jsonify(outman)
+    except Exception as e:
+        print e
+        return "invalid"
+
 @app.route('/transfer', methods = ['POST'])
 def transfer():
     payee = request.get_json(force=True)
@@ -123,40 +157,47 @@ def transfer():
     #hit the mysql for the account details
     db = MySQLdb.connect(host='localhost', user = 'root', passwd='', db='wallet')
     cur = db.cursor()
+    #for finding to the TO acc number
     cur.execute("""SELECT * FROM users WHERE vpa=%s""", [payee['vpa']])
     data = cur.fetchall()
     for each in data:
         accno = each[5]
+        payeedesc = each[2]
+    #for finding the From acc number
+    cur.execute("""SELECT * FROM users WHERE vpa=%s""", [payee['fvpa']])
+    data = cur.fetchall()
+    for each in data:
+        faccno = each[5]
+        fcustid = each[9]
+    db.close()
+    #now hit the icici api for finding the payeeid
+    response1 = unirest.get("https://retailbanking.mybluemix.net/banking/icicibank/listpayee", headers={"Accept": "application/json" }, params={ "client_id": "andrew2moses@gmail.com", "token": "fbc5f3df1504", "custid": fcustid})
+    #find the wanted payeeid
+    rgpayees = response1.body
+    for each in rgpayees:
+        try:
+            if each['payeeaccountno'] == accno:
+                wantedpayeeid = each['payeeid']
+        except:
+            print 'wow da'
+    print 'payeeid: '+str(wantedpayeeid)
     #now hit the icici api for transfer
-    response = unirest.get("https://retailbanking.mybluemix.net/banking/icicibank/fundTransfer", headers={"Accept": "application/json" }, params={ "client_id": "andrew2moses@gmail.com", "token": "fbc5f3df1504", "srcAccount":'###'})
-    #need to pass src vpa along with payee vpa
-    print 'acc number: '+str(accno)
-    response = unirest.get()
+    response = unirest.get("https://retailbanking.mybluemix.net/banking/icicibank/fundTransfer", headers={"Accept": "application/json" }, params={ "client_id": "andrew2moses@gmail.com", "token": "fbc5f3df1504", "srcAccount":faccno, "destAccount": accno, "amt": payee['amount'], "payeeDesc": payeedesc, "payeeId": wantedpayeeid, "type_of_transaction": "school fee payment"})
+    print response.body
+    try:
+        if response.body[1]['status'] == "SUCCESS":
+            #AWESOME BRO
+            return 'success'
+    except Exception as e:
+        print e
+        return 'failed'
+
 @app.errorhandler(404)
 def page_not_found(e):
     return 404
 @app.route('/')
 def Welcome():
     return app.send_static_file('index.html')
-
-@app.route('/myapp')
-def WelcomeToMyapp():
-    return 'Welcome again to my app running on Bluemix!'
-
-@app.route('/api/people')
-def GetPeople():
-    list = [
-        {'name': 'John', 'age': 28},
-        {'name': 'Bill', 'val': 26}
-    ]
-    return jsonify(results=list)
-
-@app.route('/api/people/<name>')
-def SayHello(name):
-    message = {
-        'message': 'Hello ' + name
-    }
-    return jsonify(results=message)
 
 port = os.getenv('PORT', '5000')
 if __name__ == "__main__":

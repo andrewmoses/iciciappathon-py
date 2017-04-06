@@ -3,7 +3,7 @@
 -- http://www.phpmyadmin.net
 --
 -- Host: 127.0.0.1
--- Generation Time: Apr 05, 2017 at 02:43 PM
+-- Generation Time: Apr 06, 2017 at 03:14 PM
 -- Server version: 10.1.19-MariaDB
 -- PHP Version: 7.0.13
 
@@ -35,16 +35,17 @@ CREATE TABLE `users` (
   `accountnumber` text NOT NULL,
   `lat` text NOT NULL,
   `lng` text NOT NULL,
-  `amount` text NOT NULL
+  `amount` text NOT NULL,
+  `cust_id` int(11) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 --
 -- Dumping data for table `users`
 --
 
-INSERT INTO `users` (`id`, `avatar`, `nickname`, `type`, `vpa`, `accountnumber`, `lat`, `lng`, `amount`) VALUES
-(1, 'boy2', 'dave', 'individual', '8711820291', '4444777755551981', '13.082680', '80.270718', ''),
-(2, 'man2', 'Trend Setter', 'individual', '8569248270', '4444777755551982', '13.082680', '80.270718', '');
+INSERT INTO `users` (`id`, `avatar`, `nickname`, `type`, `vpa`, `accountnumber`, `lat`, `lng`, `amount`, `cust_id`) VALUES
+(1, 'girl2', 'Vinodini', 'individual', '1870923185', '4444777755551981', '13.082680', '80.270718', '', 33336981),
+(2, 'boy1', 'andy', 'individual', '5472904837', '4444777755551982', '13.082680', '80.270718', '', 33336982);
 
 --
 -- Indexes for dumped tables
