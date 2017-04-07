@@ -78,7 +78,20 @@ def nearby():
     print location
     #simulate sample nearby guys
     guys = []
-    dic1 = {'avatar':'boy1', 'nickname': 'Andy', 'vpa': '9443344556', 'amount': '500'}
+    db = MySQLdb.connect(host='localhost', user='root', passwd='', db='wallet')
+    cur = db.cursor()
+    cur.execute(""" SELECT * FROM users WHERE amount!=%s AND vpa!=%s """, ['',location['vpa']])
+    data = cur.fetchall()
+    if data:
+        for each in data:
+            dbdic = {}
+            dbdic['avatar'] = each[1]
+            dbdic['nickname'] = each[2]
+            dbdic['vpa'] = each[4]
+            dbdic['amount'] = each[8]
+            guys.append(dbdic)
+    db.close()
+    dic1 = {'avatar':'boy1', 'nickname': 'wowda', 'vpa': '9443344556', 'amount': '500'}
     dic2 = {'avatar':'girl1', 'nickname': 'Adele', 'vpa': '9009988776', 'amount': '250'}
     dic3 = {'avatar':'man1', 'nickname': 'Rayman', 'vpa': '7588996312', 'amount': '1880'}
     guys.append(dic1)
@@ -149,6 +162,16 @@ def curbal():
     except Exception as e:
         print e
         return "invalid"
+
+@app.route('/receiveamount', methods = ['POST'])
+def receiveamount():
+    delta = request.get_json(force=True)
+    db = MySQLdb.connect(host='localhost', user = 'root', passwd='', db='wallet')
+    cur = db.cursor()
+    cur.execute( """UPDATE users set amount=%s WHERE vpa=%s""",(delta['ramt'], delta['vpa']) )
+    db.commit()
+    db.close()
+    return 'success'
 
 @app.route('/transfer', methods = ['POST'])
 def transfer():
