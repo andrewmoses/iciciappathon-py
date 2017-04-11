@@ -91,12 +91,6 @@ def nearby():
             dbdic['amount'] = each[8]
             guys.append(dbdic)
     db.close()
-    dic1 = {'avatar':'boy1', 'nickname': 'wowda', 'vpa': '9443344556', 'amount': '500'}
-    dic2 = {'avatar':'girl1', 'nickname': 'Adele', 'vpa': '9009988776', 'amount': '250'}
-    dic3 = {'avatar':'man1', 'nickname': 'Rayman', 'vpa': '7588996312', 'amount': '1880'}
-    guys.append(dic1)
-    guys.append(dic2)
-    guys.append(dic3)
     if guys:
         return jsonify(guys = guys)
     else:
