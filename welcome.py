@@ -18,6 +18,7 @@ from flask_cors import CORS, cross_origin
 import unirest
 from random import randint
 import MySQLdb
+import json
 
 def random_with_N_digits(n):
     range_start = 10**(n-1)
@@ -60,6 +61,36 @@ def newuser():
                     break
             currentbalance = response.body[1]['balance']
             outman = {'pubkey': pubkey, 'privatekey': privatekey, 'currentbalance': currentbalance}
+            #hit the bluemix blockchain ledger
+            print 'going to hit the bluemix blockchain'
+            resblock = unirest.post("https://93b0d05c445540edbf9c088b30d0b52e-vp0.us.blockchain.ibm.com:5003/chaincode", headers={"Accept": "application/json"}, params = json.dumps({
+            "jsonrpc": "2.0",
+            "method": "invoke",
+            "params": {
+                "type": 1,
+                "chaincodeID": {
+                    "name": "83bebc86e54fdbad84e8022a8055315807365b290e4be32e200a0e0c1a24c107e24702330a2a1caf08425a34755b1f3031776997eac3a3eb898a87fe1fc55b51"
+                },
+                "ctorMsg": {
+                    "function": "init",
+                    "args": [
+                        str(pubkey),
+                        currentbalance[0:len(currentbalance)-3],
+                        "563",
+                        "97565"
+                    ]
+                },
+                "secureContext": "user_type1_0"
+            },
+            "id": 1
+            })
+            )
+            #check if it is success
+            print resblock.body
+            if resblock.body['result']['status'] == "OK":
+                print 'blockchain invocation Success'
+            else:
+                print 'blockchain invocation Failed'
             #insert into db
             cur.execute("""INSERT INTO users(vpa,accountnumber,cust_id) values(%s,%s,%s)""", (pubkey,accno['accountno'],wantedcustid))
             db.commit()
@@ -169,42 +200,86 @@ def receiveamount():
 
 @app.route('/transfer', methods = ['POST'])
 def transfer():
-    payee = request.get_json(force=True)
-    print payee
-    #hit the mysql for the account details
-    db = MySQLdb.connect(host='localhost', user = 'root', passwd='', db='wallet')
-    cur = db.cursor()
-    #for finding to the TO acc number
-    cur.execute("""SELECT * FROM users WHERE vpa=%s""", [payee['vpa']])
-    data = cur.fetchall()
-    for each in data:
-        accno = each[5]
-        payeedesc = each[2]
-    #for finding the From acc number
-    cur.execute("""SELECT * FROM users WHERE vpa=%s""", [payee['fvpa']])
-    data = cur.fetchall()
-    for each in data:
-        faccno = each[5]
-        fcustid = each[9]
-    db.close()
-    #now hit the icici api for finding the payeeid
-    response1 = unirest.get("https://retailbanking.mybluemix.net/banking/icicibank/listpayee", headers={"Accept": "application/json" }, params={ "client_id": "andrew2moses@gmail.com", "token": "fbc5f3df1504", "custid": fcustid})
-    #find the wanted payeeid
-    rgpayees = response1.body
-    for each in rgpayees:
-        try:
-            if each['payeeaccountno'] == accno:
-                wantedpayeeid = each['payeeid']
-        except:
-            print 'wow da'
-    print 'payeeid: '+str(wantedpayeeid)
-    #now hit the icici api for transfer
-    response = unirest.get("https://retailbanking.mybluemix.net/banking/icicibank/fundTransfer", headers={"Accept": "application/json" }, params={ "client_id": "andrew2moses@gmail.com", "token": "fbc5f3df1504", "srcAccount":faccno, "destAccount": accno, "amt": payee['amount'], "payeeDesc": payeedesc, "payeeId": wantedpayeeid, "type_of_transaction": "school fee payment"})
-    print response.body
     try:
+        payee = request.get_json(force=True)
+        print payee
+        #hit the mysql for the account details
+        db = MySQLdb.connect(host='localhost', user = 'root', passwd='', db='wallet')
+        cur = db.cursor()
+        #for finding to the TO acc number
+        cur.execute("""SELECT * FROM users WHERE vpa=%s""", [payee['vpa']])
+        data = cur.fetchall()
+        for each in data:
+            accno = each[5]
+            payeedesc = each[2]
+        #for finding the From acc number
+        cur.execute("""SELECT * FROM users WHERE vpa=%s""", [payee['fvpa']])
+        data = cur.fetchall()
+        for each in data:
+            faccno = each[5]
+            fcustid = each[9]
+        db.close()
+        #now hit the icici api for finding the payeeid
+        response1 = unirest.get("https://retailbanking.mybluemix.net/banking/icicibank/listpayee", headers={"Accept": "application/json" }, params={ "client_id": "andrew2moses@gmail.com", "token": "fbc5f3df1504", "custid": fcustid})
+        #find the wanted payeeid
+        rgpayees = response1.body
+        for each in rgpayees:
+            try:
+                if each['payeeaccountno'] == accno:
+                    wantedpayeeid = each['payeeid']
+            except:
+                print 'wow da'
+        print 'payeeid: '+str(wantedpayeeid)
+        #ibm blockchain for transfer
+        print json.dumps({
+        "jsonrpc": "2.0",
+        "method": "invoke",
+        "params": {
+            "type": 1,
+            "chaincodeID": {
+                "name": "83bebc86e54fdbad84e8022a8055315807365b290e4be32e200a0e0c1a24c107e24702330a2a1caf08425a34755b1f3031776997eac3a3eb898a87fe1fc55b51"
+            },
+            "ctorMsg": {
+                "function": "invoke",
+                "args": [
+                    payee['fvpa'],
+                    payee['vpa'],
+                    str(payee['amount'])
+                ]
+            },
+            "secureContext": "user_type1_0"
+        },
+        "id": 1
+        })
+        resblocktransfer = unirest.post("https://93b0d05c445540edbf9c088b30d0b52e-vp0.us.blockchain.ibm.com:5003/chaincode", headers={"Accept": "application/json"}, params = json.dumps({
+        "jsonrpc": "2.0",
+        "method": "invoke",
+        "params": {
+            "type": 1,
+            "chaincodeID": {
+                "name": "83bebc86e54fdbad84e8022a8055315807365b290e4be32e200a0e0c1a24c107e24702330a2a1caf08425a34755b1f3031776997eac3a3eb898a87fe1fc55b51"
+            },
+            "ctorMsg": {
+                "function": "invoke",
+                "args": [
+                    payee['fvpa'],
+                    payee['vpa'],
+                    str(payee['amount'])
+                ]
+            },
+            "secureContext": "user_type1_0"
+        },
+        "id": 1
+        }))
+        print resblocktransfer.body
+        #now hit the icici api for transfer
+        response = unirest.get("https://retailbanking.mybluemix.net/banking/icicibank/fundTransfer", headers={"Accept": "application/json" }, params={ "client_id": "andrew2moses@gmail.com", "token": "fbc5f3df1504", "srcAccount":faccno, "destAccount": accno, "amt": payee['amount'], "payeeDesc": payeedesc, "payeeId": wantedpayeeid, "type_of_transaction": "school fee payment"})
+        print response.body
         if response.body[1]['status'] == "SUCCESS":
             #AWESOME BRO
             return 'success'
+        else:
+            return 'failed'
     except Exception as e:
         print e
         return 'failed'
