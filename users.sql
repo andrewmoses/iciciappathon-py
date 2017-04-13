@@ -3,7 +3,7 @@
 -- http://www.phpmyadmin.net
 --
 -- Host: 127.0.0.1
--- Generation Time: Apr 07, 2017 at 03:12 PM
+-- Generation Time: Apr 13, 2017 at 02:56 PM
 -- Server version: 10.1.19-MariaDB
 -- PHP Version: 7.0.13
 
@@ -44,9 +44,9 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `avatar`, `nickname`, `type`, `vpa`, `accountnumber`, `lat`, `lng`, `amount`, `cust_id`) VALUES
-(1, 'girl2', 'Vinodini', 'individual', '1870923185', '4444777755551981', '13.082680', '80.270718', '', 33336981),
-(2, 'boy1', 'andy', 'individual', '5472904837', '4444777755551982', '13.082680', '80.270718', '800', 33336982),
-(3, 'man2', 'Qoc', 'individual', '9735684057', '4444777755551983', '13.082680', '80.270718', '', 33336983);
+(1, 'man2', 'partner', 'individual', '1232548952', '4444777755551982', '13.082680', '80.270718', '5566', 33336982),
+(2, 'boy1', 'Gates', 'individual', '1916394547', '4444777755551981', '13.082680', '80.270718', '', 33336981),
+(4, 'man2', 'Stationary Shop', 'merchant', '8844884880', '4444777755551983', '13.082680', '80.270718', '', 33336983);
 
 --
 -- Indexes for dumped tables
@@ -66,7 +66,7 @@ ALTER TABLE `users`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(10) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(10) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;

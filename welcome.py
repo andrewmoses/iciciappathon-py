@@ -111,15 +111,20 @@ def nearby():
     guys = []
     db = MySQLdb.connect(host='localhost', user='root', passwd='', db='wallet')
     cur = db.cursor()
-    cur.execute(""" SELECT * FROM users WHERE amount!=%s AND vpa!=%s """, ['',location['vpa']])
-    data = cur.fetchall()
-    if data:
+    cur.execute(""" SELECT * FROM nearby WHERE vpa!=%s """, [location['vpa']])
+    data0 = cur.fetchall()
+    for each in data0:
+        dbdic = {}
+        dbdic['item'] = each[1]
+        dbdic['amount'] = each[2]
+        mvpa = each[3]
+        #hit the users table to get the merchant name and avatar
+        cur.execute(""" SELECT * FROM users WHERE vpa=%s """, [mvpa])
+        data = cur.fetchall()
         for each in data:
-            dbdic = {}
             dbdic['avatar'] = each[1]
             dbdic['nickname'] = each[2]
             dbdic['vpa'] = each[4]
-            dbdic['amount'] = each[8]
             guys.append(dbdic)
     db.close()
     if guys:
@@ -136,7 +141,8 @@ def extradata():
         cur.execute( """UPDATE users set avatar=%s, nickname=%s, type=%s, lat=%s, lng=%s WHERE vpa=%s""", (fulldata['avatar'], fulldata['nickname'], fulldata['type'], fulldata['lat'], fulldata['lng'], fulldata['vpa']))
         db.commit()
         db.close()
-        return 'success'
+        outman = {'stat':'success','actype':fulldata['type']}
+        return jsonify(outman)
     except Exception as e:
         print e
         return 'failed'
@@ -176,13 +182,14 @@ def curbal():
     data = cur.fetchall()
     for each in data:
         curaccno = each[5]
+        actype = each[3]
     db.close()
     #nwo hit the icic for balance
     response = unirest.get("https://retailbanking.mybluemix.net/banking/icicibank/balanceenquiry", headers={ "Accept": "application/json" }, params={ "client_id": "andrew2moses@gmail.com", "token": "fbc5f3df1504", "accountno": curaccno })
     try:
         if response.body[1]['balance']:
             currentbalance = response.body[1]['balance']
-            outman = {'curbal':currentbalance}
+            outman = {'curbal':currentbalance,'actype':actype}
             return jsonify(outman)
     except Exception as e:
         print e
@@ -191,13 +198,30 @@ def curbal():
 @app.route('/receiveamount', methods = ['POST'])
 def receiveamount():
     delta = request.get_json(force=True)
+    print delta
     db = MySQLdb.connect(host='localhost', user = 'root', passwd='', db='wallet')
     cur = db.cursor()
-    cur.execute( """UPDATE users set amount=%s WHERE vpa=%s""",(delta['ramt'], delta['vpa']) )
+    cur.execute( """INSERT INTO nearby(item,price,vpa) VALUES(%s,%s,%s)""",(delta['itemname'], delta['itemprice'], delta['vpa']) )
     db.commit()
     db.close()
     return 'success'
-
+@app.route('/meritems', methods = ['POST'])
+def meritems():
+    merchant = request.get_json(force=True)
+    print "received merchant vpa: "+merchant['vpa']
+    db = MySQLdb.connect(host='localhost', user='root', passwd='', db='wallet')
+    cur = db.cursor()
+    #for gettings all the items posted by the merchant from nearby table
+    cur.execute("""SELECT * FROM nearby WHERE vpa=%s""",[merchant['vpa']])
+    data = cur.fetchall()
+    meritems = []
+    for each in data:
+        dbdic = {}
+        dbdic['item'] = each[1]
+        dbdic['amount'] = each[2]
+        meritems.append(dbdic)
+    db.close()
+    return jsonify(meritems = meritems)
 @app.route('/transfer', methods = ['POST'])
 def transfer():
     try:
