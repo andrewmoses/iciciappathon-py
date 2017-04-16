@@ -1,0 +1,2 @@
+tcs: (host='localhost', user='root', passwd='', db='wallet')
+home: (host='localhost', user='root', passwd='kakavarumahillaya', db='wallet')
